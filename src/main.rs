@@ -24,68 +24,116 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     login(&driver).await?;
 
-    do_exercise(&driver, &database, &translator).await?;
+    do_session(&driver, &database, &translator).await?;
 
     driver.quit().await?;
 
     Ok(())
 }
 
-async fn do_session(driver: &WebDriver, database: &Tree, translator: &Translator) -> Result<(), Box<dyn Error>> {
+async fn do_session(driver: &WebDriver, database: &Tree, translator: &GoogleTranslator) -> Result<(), Box<dyn Error>> {
     println!("Doing session");
     click(driver, By::ClassName("btn-start-session")).await?;
-    click(driver, By::Id("continue_session_button")).await?;
+    driver
+        .query(By::Id("start_session_button"))
+        .and_displayed()
+        .or(By::Id("continue_session_button"))
+        .and_displayed()
+        .single()
+        .await?
+        .click()
+        .await?;
 
-    while element_exists(driver, By::Id("question_usage")) {
-        solve_question(driver, database, translator).await?
+    let (mut correct_count, mut total_count) = (0, 0);
+    while element_visible(driver, By::Id("question_usage")).await? {
+        let is_correct = solve_question(driver, database, translator).await?;
+        if is_correct {
+            correct_count += 1;
+        }
+        total_count += 1;
     }
+
+    println!("Finished session with success rate: {}%", 100 * correct_count / total_count);
 
     Ok(())
 }
 
-async fn solve_question(driver: &WebDriver, database: &Tree, translator: &Translator) -> Result<(), Box<dyn Error>> {
+async fn guess_answer(database: &Tree, translator: &GoogleTranslator, key: &[u8], hint: String) -> Result<(String, bool), Box<dyn Error>> {
+    if let Some(answer) = database.begin()?.get(key)? {
+        return Ok((String::from_utf8(answer)?, false));
+    }
+
+    let mut word = hint;
+    if let Some(size) = word.find(';') {
+        word.truncate(size);
+    }
+    else if let Some(size) = word.find(',') {
+        word.truncate(size);
+    }
+    Ok((translator.translate_async(&word, "pl", "en").await?, true))
+}
+
+async fn solve_question(driver: &WebDriver, database: &Tree, translator: &GoogleTranslator) -> Result<bool, Box<dyn Error>> {
     let sentence = get_text(driver, By::Id("question_usage")).await?;
     let hint = get_text(driver, By::ClassName("word_data")).await?;
 
-    print!("Question: {hint}");
+    println!("Question: {} -- {}", sentence.replace("\n", ""), hint.replace("\n", ""));
 
     let key = (sentence + &*hint).into_bytes();
+    let (answer, should_update_database) = guess_answer(database, translator, &key, hint).await?;
     
-    let answer = match database.begin()?.get(&key)? {
-        Some(val) => {
-            String::from_utf8(val)?
-        }
-        None => {
-            let mut word = hint;
-            word.truncate(word.find(','));
-            translator.translate_sync(word, "pl", "en")?
-        }
-    };
-    
-    println!("Guessed answer: {answer}");
+    if should_update_database {
+        println!("Guessed answer: {answer}");
+    } else {
+        println!("Remembered answer: {answer}");
+    }
 
     send_keys(driver, By::Id("answer"), &answer).await?;
     click(driver, By::Id("check")).await?;
 
-    let correct_answer = get_text(driver, By::Id("word")).await?;
+    let answer_result = get_text(driver, By::Id("answer_result")).await?;
+    let is_answer_incorrect = answer_result == "Niepoprawnie";
 
-    println!("Correct answer: {correct_answer}");
+    if answer_result == "Dobrze!" {
+        if should_update_database {
+            let correct_answer = get_text(driver, By::Id("word")).await?;
+            learn_word(database, &key, correct_answer).await?;
+        }
+    } else if is_answer_incorrect {
+        let correct_answer = get_text(driver, By::Id("word")).await?;
+        learn_word(database, &key, correct_answer).await?;
+    } else {
+        forget_word(database, &key).await?;
+    }
 
-    if answer != correct_answer {
-        let mut tx = database.begin()?;
-        tx.set(&key, correct_answer.into_bytes())?;
-        tx.commit().await?;
+    if is_answer_incorrect {
+        click(driver, By::Id("nextword")).await?;
+        return Ok(false);
     }
 
     click(driver, By::Id("nextword")).await?;
+    Ok(true)
+}
+
+async fn learn_word(database: &Tree, key: &[u8], word: String) -> Result<(), Box<dyn Error>> {
+    println!("Learned new word: {word}");
+
+    let mut tx = database.begin()?;
+    tx.set(key, word.into_bytes())?;
+    tx.commit().await?;
 
     Ok(())
 }
 
-// async fn print_page(driver: &WebDriver) -> Result<(), WebDriverError> {
-//     println!("{}", driver.source().await?);
-//     Ok(())
-// }
+async fn forget_word(database: &Tree, key: &[u8]) -> Result<(), Box<dyn Error>> {
+    println!("Reset this answer");
+
+    let mut tx = database.begin()?;
+    tx.set(key, b"")?;
+    tx.commit().await?;
+
+    Ok(())
+}
 
 async fn login(driver: &WebDriver) -> Result<(), WebDriverError> {
     driver.goto("https://instaling.pl/teacher.php?page=login").await?;
@@ -97,11 +145,12 @@ async fn login(driver: &WebDriver) -> Result<(), WebDriverError> {
     Ok(())
 }
 
-async fn element_exists(driver: &WebDriver, selector: By) -> Result<Bool, WebDriverError> {
+async fn element_visible(driver: &WebDriver, selector: By) -> Result<bool, WebDriverError> {
     driver
         .query(selector)
+        .and_displayed()
         .exists()
-        .await?
+        .await
 }
 
 async fn get_text(driver: &WebDriver, selector: By) -> Result<String, WebDriverError> {
