@@ -3,13 +3,39 @@ use thirtyfour::manager::*;
 use surrealkv::{Tree, TreeBuilder};
 use translators::{GoogleTranslator, Translator};
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write, stdin, stdout};
 use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let username = match read_secret("username") {
+        Ok(secret) => secret,
+        Err(_) => {
+            print!("Username: ");
+            stdout().flush()?;
+            let mut buffer = String::new();
+            stdin().read_line(&mut buffer)?;
+            String::from(buffer.trim_end())
+        }
+    };
+    let password = match read_secret("password") {
+        Ok(secret) => secret,
+        Err(_) => {
+            print!("Password: ");
+            stdout().flush()?;
+            let mut buffer = String::new();
+            stdin().read_line(&mut buffer)?;
+            String::from(buffer.trim_end())
+        }
+    };
+
+    if username.is_empty() || password.is_empty() {
+        println!("Empty username or password");
+        return Ok(())
+    }
+
     let mut caps = DesiredCapabilities::firefox();
-    // caps.add_arg("--headless")?;
+    caps.add_arg("--headless")?;
     let driver = WebDriver::managed(caps)
         .driver_binary(BrowserKind::Firefox, "geckodriver")
         // .stdio(StdioMode::Inherit)
@@ -21,8 +47,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()?;
 
     let translator = GoogleTranslator::default();
-
-    login(&driver).await?;
+    
+    login(&driver, &username, &password).await?;
+    if driver.title().await?.starts_with("Logowanie") {
+        println!("Failed to log in");
+        return Ok(())
+    }
 
     do_session(&driver, &database, &translator).await?;
 
@@ -135,11 +165,12 @@ async fn forget_word(database: &Tree, key: &[u8]) -> Result<(), Box<dyn Error>> 
     Ok(())
 }
 
-async fn login(driver: &WebDriver) -> Result<(), WebDriverError> {
+async fn login(driver: &WebDriver, username: &String, password: &String) -> Result<(), WebDriverError> {
+    println!("Logging in...");
     driver.goto("https://instaling.pl/teacher.php?page=login").await?;
 
-    send_keys(driver, By::Id("log_email"), &read_secret("username")?).await?;
-    send_keys(driver, By::Id("log_password"), &read_secret("password")?).await?;
+    send_keys(driver, By::Id("log_email"), username).await?;
+    send_keys(driver, By::Id("log_password"), password).await?;
     click(driver, By::Css("button[type=submit]")).await?;
     
     Ok(())
