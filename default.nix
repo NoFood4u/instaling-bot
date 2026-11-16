@@ -12,6 +12,7 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
     pkg-config
   ];
   buildInputs = with pkgs; [
+    aws-lc
     zstd
   ];
   propagatedBuildInputs = with pkgs; [
