@@ -8,6 +8,9 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
 
   cargoHash = "sha256-gsdIE6FODdMoEAYRA4P6AO4gKBrHLcNWhbY5XA1tDMo=";
 
+  nativeBuildInputs = with pkgs; [
+    pkg-config
+  ];
   propagatedBuildInputs = with pkgs; [
     firefox
     geckodriver
