@@ -11,6 +11,9 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
   nativeBuildInputs = with pkgs; [
     pkg-config
   ];
+  buildInputs = with pkgs; [
+    zstd
+  ];
   propagatedBuildInputs = with pkgs; [
     firefox
     geckodriver
