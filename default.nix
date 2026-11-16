@@ -16,9 +16,11 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
     zstd
   ];
 
-  installPhase = ''
-    mkdir -p $out/bin
-    cp instaling-bot $out/bin/instaling-bot
+  # installPhase = ''
+  #   mkdir -p $out/bin
+  #   ls
+  #   cp target/debug/instaling-bot $out/bin/instaling-bot
+  postInstall = ''
     wrapProgram $out/bin/instaling-bot \
       --prefix PATH : ${pkgs.lib.makeBinPath (with pkgs; [ firefox geckodriver ])}
   '';
