@@ -6,16 +6,10 @@ pkgs.rustPlatform.buildRustPackage (finalAttrs: {
 
   src = ./.;
 
-  cargoHash = "sha256-9atn5qyBDy4P6iUoHFhg+TV6Ur71fiah4oTJbBMeEy4=";
+  cargoHash = "sha256-gsdIE6FODdMoEAYRA4P6AO4gKBrHLcNWhbY5XA1tDMo=";
 
   propagatedBuildInputs = with pkgs; [
     firefox
     geckodriver
   ];
-
-  # meta = {
-  #   description = "";
-  #   license = lib.licenses.unlicense;
-  #   maintainers = [ ];
-  # };
 })
