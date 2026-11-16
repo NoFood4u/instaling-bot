@@ -125,7 +125,7 @@ async fn solve_question(driver: &WebDriver, database: &Tree, translator: &Google
         println!("Remembered answer: {answer}");
     }
 
-    sleep(Duration::from_secs(rand::random_range(5..10) + rand::random_range(5..10))).await;
+    sleep(Duration::from_secs(rand::random_range(2..10) + rand::random_range(2..10))).await;
 
     send_keys(driver, By::Id("answer"), &answer).await?;
     click(driver, By::Id("check")).await?;

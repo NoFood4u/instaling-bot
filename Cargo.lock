@@ -944,6 +944,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "instaling-bot"
+version = "0.1.0"
+dependencies = [
+ "rand 0.10.4",
+ "surrealkv",
+ "thirtyfour",
+ "tokio",
+ "translators",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1571,17 +1582,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rust"
-version = "0.1.0"
-dependencies = [
- "rand 0.10.4",
- "surrealkv",
- "thirtyfour",
- "tokio",
- "translators",
 ]
 
 [[package]]
