@@ -7,7 +7,7 @@
 
   outputs = inputs: {
     packages = builtins.mapAttrs (system: pkgs: {
-      default = import ./default.nix { rustPlatform = pkgs.rustPlatform; };
+      default = import ./default.nix { inherit pkgs; };
     }) inputs.nixpkgs.legacyPackages;
   };
 }
