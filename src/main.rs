@@ -1,10 +1,14 @@
+use thirtyfour::common::capabilities::firefox::FirefoxPreferences;
 use thirtyfour::prelude::*;
 use thirtyfour::manager::*;
 use surrealkv::{Tree, TreeBuilder};
 use translators::{GoogleTranslator, Translator};
+use tokio::time::sleep;
 use std::fs::File;
 use std::io::{Read, Write, stdin, stdout};
 use std::error::Error;
+use rand;
+use core::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -34,8 +38,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         return Ok(())
     }
 
+    let mut preferences = FirefoxPreferences::new();
+    preferences.set("media.volume_scale", "0.0")?;
     let mut caps = DesiredCapabilities::firefox();
     caps.add_arg("--headless")?;
+    caps.set_preferences(preferences)?;
     let driver = WebDriver::managed(caps)
         .driver_binary(BrowserKind::Firefox, "geckodriver")
         // .stdio(StdioMode::Inherit)
@@ -117,6 +124,8 @@ async fn solve_question(driver: &WebDriver, database: &Tree, translator: &Google
     } else {
         println!("Remembered answer: {answer}");
     }
+
+    sleep(Duration::from_secs(rand::random_range(5..10) + rand::random_range(5..10))).await;
 
     send_keys(driver, By::Id("answer"), &answer).await?;
     click(driver, By::Id("check")).await?;
